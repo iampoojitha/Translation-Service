@@ -3,6 +3,8 @@ package Data.Translation_Service.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @Table(name = "translations")
 @Entity
@@ -20,7 +22,7 @@ public class Translation {
     @Column(name = ID)
     private Long id;
 
-    @Column(name = TRANSLATION_VALUE)
+    @Column(name = TRANSLATION_KEY)
     private String translationKey;
 
     @Column(name = TRANSLATION_VALUE)
@@ -30,8 +32,20 @@ public class Translation {
     private String language;
 
     @Column(name = CREATED_AT)
-    private String createdAt;
+    private LocalDateTime createdAt;
 
     @Column(name = UPDATED_AT)
-    private String updatedAt;
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void onPrePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    public void onPreUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
