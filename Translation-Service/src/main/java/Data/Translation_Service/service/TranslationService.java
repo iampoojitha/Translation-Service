@@ -5,5 +5,5 @@ import java.util.Map;
 
 public interface TranslationService {
 
-    public Map<String, String> getTranslation(List<String> translationKeys, Map<String, Double> languages);
+    public Map<String, String> getTranslation(List<String> translationKeys, Map<String, Double> languages, String username);
 }
