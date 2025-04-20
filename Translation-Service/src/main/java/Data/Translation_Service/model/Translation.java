@@ -16,6 +16,7 @@ public class Translation {
     private static final String LANGUAGE = "language";
     private static final String CREATED_AT = "created_at";
     private static final String UPDATED_AT = "updated_at";
+    private static final String IS_TEMPLATE = "is_template";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,6 +37,9 @@ public class Translation {
 
     @Column(name = UPDATED_AT)
     private LocalDateTime updatedAt;
+
+    @Column(name = IS_TEMPLATE)
+    private Boolean isTemplate;
 
     @PrePersist
     public void onPrePersist() {

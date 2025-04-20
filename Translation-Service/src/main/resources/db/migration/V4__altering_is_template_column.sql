@@ -1,0 +1,1 @@
+ALTER TABLE translations ADD COLUMN is_template BOOLEAN DEFAULT FALSE;
