@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:latest
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_TIMEOUT=900000ms
+    command: ["redis-server", "--timeout", "900000"]
