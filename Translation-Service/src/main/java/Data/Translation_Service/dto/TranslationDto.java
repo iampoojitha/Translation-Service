@@ -10,6 +10,9 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TranslationDto implements Serializable {
+    private Long id;
+    private String translationKey;
     private String translationValue;
     private Boolean isTemplate;
+    private String language;
 }
