@@ -27,14 +27,13 @@ public class TranslationServiceImpl implements TranslationService {
     ModelMapper modelMapper = new ModelMapper();
 
     @Override
-    @Cacheable(value = "translations", key = "T(java.util.Objects).hash(#request.getTranslationKeys().stream().sorted().collect(T(java.util.stream.Collectors).toList()).toString() + '_' + #languageHeader + '_' + #request.getTemplateData())")
-    public Map<String, String> getTranslation(TranslationRequestDto request, String languageHeader) {
+    @Cacheable(value = "translations", key = "T(java.util.Objects).hash(#request.getTranslationKeys().stream().sorted().collect(T(java.util.stream.Collectors).toList()).toString() + '_' + #language + '_' + #request.getTemplateData())")
+    public Map<String, String> getTranslation(TranslationRequestDto request, String language) {
         Map<String, String> response = new HashMap<>();
 
-        String highestLanguage = getBestMatchedLocale(languageHeader);
         Set<String> keys = request.getTranslationKeys();
 
-        List<Translation> translations = translationRepo.findAllByTranslationKeyInAndLanguage(keys, highestLanguage);
+        List<Translation> translations = translationRepo.findAllByTranslationKeyInAndLanguage(keys, language);
 
         for (Translation translation : translations) {
             String value = translation.getTranslationValue();
@@ -59,20 +58,5 @@ public class TranslationServiceImpl implements TranslationService {
             translationRepo.save(translation);
         }
         return translationDto;
-    }
-
-    private static String getBestMatchedLocale(String languageHeader) {
-        if (languageHeader == null || languageHeader.isBlank()) {
-            return DEFAULT_LANGUAGE;
-        }
-        List<Locale> supportedLocales = List.of(
-                Locale.forLanguageTag("fr"),
-                Locale.forLanguageTag("en"),
-                Locale.forLanguageTag("hi")
-        );
-
-        List<Locale.LanguageRange> languageRanges = Locale.LanguageRange.parse(languageHeader);
-        Locale bestMatchedLanguage = Locale.lookup(languageRanges, supportedLocales);
-        return bestMatchedLanguage != null ? bestMatchedLanguage.getLanguage() : DEFAULT_LANGUAGE;
     }
 }

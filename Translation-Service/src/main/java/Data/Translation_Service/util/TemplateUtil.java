@@ -16,11 +16,11 @@ import java.util.Map;
 
 public class TemplateUtil {
 
-    public static String renderTemplateText(String templateText, JsonNode templateData) throws IOException, TemplateException {
+    public static String renderTemplateText(String templateText, Map<String, String> templateData) throws IOException, TemplateException {
         ObjectMapper objectMapper = new ObjectMapper();
 
         Map<String, Object> templateMap = new HashMap<>();
-        if (templateData != null && !templateData.isNull()) {
+        if (templateData != null && !templateData.isEmpty()) {
             templateMap = objectMapper.convertValue(templateData, new TypeReference<>() {});
         }
 

@@ -6,7 +6,9 @@ import Data.Translation_Service.dto.TranslationRequestDto;
 import Data.Translation_Service.service.TranslationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.RequestContext;
 
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -15,15 +17,14 @@ import java.util.Map;
 public class TranslationRoute {
 
     private final TranslationService translationService;
+    private RequestContext requestContext;
 
     @PostMapping(AppConfig.GET_TRANSLATION)
     public Map<String, String> getTranslation(@RequestBody TranslationRequestDto request,
                                               @RequestHeader(name = "Accept-Language", required = false) String languageHeader) {
-        try {
-            return translationService.getTranslation(request, languageHeader);
-        } catch(Exception e) {
-            throw new RuntimeException(e);
-        }
+        final Locale locale = requestContext.getLocale();
+        return translationService.getTranslation(request, locale.getLanguage());
+
     }
 
     @PutMapping(AppConfig.UPDATE_TRANSLATION)
