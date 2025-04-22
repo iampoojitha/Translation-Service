@@ -1,88 +1,78 @@
 package Data.Translation_Service.service.impl;
 
 import Data.Translation_Service.dto.TranslationDto;
+import Data.Translation_Service.dto.TranslationRequestDto;
+import Data.Translation_Service.model.Translation;
 import Data.Translation_Service.repository.TranslationRepo;
 import Data.Translation_Service.service.TranslationService;
+import Data.Translation_Service.util.TemplateUtil;
+import freemarker.template.TemplateException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
+import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.io.IOException;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TranslationServiceImpl implements TranslationService {
 
     private final TranslationRepo translationRepo;
-    private final RedisTemplate<String, TranslationDto> redisTemplate;
     private static final String DEFAULT_LANGUAGE = "en";
-    private static final String DEFAULT_USERNAME = "anonymous";
 
-    @Value("${redis.expiry.time}")
-    private Long expiryTime;
+    ModelMapper modelMapper = new ModelMapper();
 
     @Override
-    public Map<String, String> getTranslation(List<String> translationKeys, Map<String, Double> languages, String username) {
+    @Cacheable(value = "translations", key = "T(java.util.Objects).hash(#request.getTranslationKeys().stream().sorted().collect(T(java.util.stream.Collectors).toList()).toString() + '_' + #languageHeader + '_' + #request.getTemplateData())")
+    public Map<String, String> getTranslation(TranslationRequestDto request, String languageHeader) {
         Map<String, String> response = new HashMap<>();
-        try {
-            username = validateUsername(username);
-            String finalUsername = username;
-            if (translationKeys == null || translationKeys.isEmpty()) {
-                throw new NullPointerException("Translation keys cannot be null");
-            }
 
-            String highestLanguage = getHighestValueLanguage(languages);
-            for (String translationKey : translationKeys) {
-                String cacheKey = translationKey + "_" + highestLanguage;
-                if (redisTemplate.hasKey(cacheKey)) {
-                    TranslationDto translationDto = Objects.requireNonNull(redisTemplate.opsForValue().get(cacheKey));
-                    String translationValue = translationDto.getTranslationValue();
-                    if (translationDto.getIsTemplate()) {
-                        translationValue = translationDto.getTranslationValue().replace("{{username}}", finalUsername);
-                    }
-                    response.put(translationKey, translationValue);
-                } else {
-                    translationRepo.findByTranslationKeyAndLanguage(translationKey, highestLanguage)
-                            .ifPresent(translation -> {
-                                String value = translation.getTranslationValue();
-                                if (translation.getIsTemplate()) {
-                                    value = translation.getTranslationValue().replace("{{username}}", finalUsername);
-                                }
-                                response.put(translationKey, value);
-                                TranslationDto translationValue = new TranslationDto(translation.getTranslationValue(), translation.getIsTemplate());
-                                redisTemplate.opsForValue().set(cacheKey, translationValue, Duration.ofMinutes(expiryTime));
-                            });
+        String highestLanguage = getBestMatchedLocale(languageHeader);
+        Set<String> keys = request.getTranslationKeys();
+
+        List<Translation> translations = translationRepo.findAllByTranslationKeyInAndLanguage(keys, highestLanguage);
+
+        for (Translation translation : translations) {
+            String value = translation.getTranslationValue();
+            if (Boolean.TRUE.equals(translation.getIsTemplate())) {
+                try {
+                    value = TemplateUtil.renderTemplateText(value, request.getTemplateData());
+                } catch (IOException | TemplateException e) {
+                    log.error("Error rendering template for translation key: " + translation.getTranslationKey(), e);
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            response.put(translation.getTranslationKey(), value);
         }
         return response;
     }
 
-    public static String validateUsername(String username) {
-        if (username == null || username.isEmpty()) {
-            return DEFAULT_USERNAME;
+    @Override
+    public TranslationDto updateTranslation(TranslationDto translationDto) {
+        Translation translation = translationRepo.findById(translationDto.getId()).orElse(null);
+        if (translation != null) {
+            modelMapper.getConfiguration().setSkipNullEnabled(true);
+            modelMapper.map(translationDto, translation);
+            translationRepo.save(translation);
         }
-        return username;
+        return translationDto;
     }
 
-    public static String getHighestValueLanguage(Map<String, Double> languages) {
-        String highestLanguage = DEFAULT_LANGUAGE;
-        if (languages != null && !languages.isEmpty()) {
-            double highestValue = Double.MIN_VALUE;
-            for (var language : languages.entrySet()) {
-                if (language.getValue() > highestValue) {
-                    highestValue = language.getValue();
-                    highestLanguage = language.getKey();
-                }
-            }
+    private static String getBestMatchedLocale(String languageHeader) {
+        if (languageHeader == null || languageHeader.isBlank()) {
+            return DEFAULT_LANGUAGE;
         }
-        return highestLanguage;
+        List<Locale> supportedLocales = List.of(
+                Locale.forLanguageTag("fr"),
+                Locale.forLanguageTag("en"),
+                Locale.forLanguageTag("hi")
+        );
+
+        List<Locale.LanguageRange> languageRanges = Locale.LanguageRange.parse(languageHeader);
+        Locale bestMatchedLanguage = Locale.lookup(languageRanges, supportedLocales);
+        return bestMatchedLanguage != null ? bestMatchedLanguage.getLanguage() : DEFAULT_LANGUAGE;
     }
 }
